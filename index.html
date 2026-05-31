@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-In — Certificazione di Presenza</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    #map-container { height: 220px; z-index: 0; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+
+  <header class="bg-brand-800 text-white shadow-md">
+    <div class="max-w-lg mx-auto px-4 py-5 text-center">
+      <h1 class="text-2xl font-bold tracking-tight">Check-In</h1>
+      <p class="text-brand-200 text-sm mt-1">Certificazione di Presenza</p>
+    </div>
+  </header>
+
+  <!-- Banner richiesta check-in con countdown -->
+  <div id="banner-richiesta" class="hidden bg-amber-500 text-white">
+    <div class="max-w-lg mx-auto px-4 py-3 text-center">
+      <p class="text-sm font-semibold">Richiesta di check-in — tempo rimanente</p>
+      <p id="countdown-richiesta" class="text-2xl font-bold font-mono mt-1">15:00</p>
+      <p class="text-xs text-amber-100 mt-1">Completa il check-in entro 15 minuti alla residenza registrata</p>
+    </div>
+  </div>
+
+  <div id="banner-bloccato" class="hidden bg-red-600 text-white">
+    <div class="max-w-lg mx-auto px-4 py-4 text-center text-sm font-medium"></div>
+  </div>
+
+  <!-- SPID Login Screen -->
+  <div id="spid-screen" class="max-w-lg mx-auto px-4 py-8">
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 p-6 sm:p-8 text-center">
+      <div class="mb-6">
+        <svg class="w-20 h-20 mx-auto mb-4" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" fill="#005CBB"/>
+          <path d="M30 35h40v30H30z" fill="white"/>
+          <path d="M35 40h30v20H35z" fill="#005CBB"/>
+          <circle cx="50" cy="50" r="8" fill="white"/>
+        </svg>
+        <h2 class="text-2xl font-bold text-slate-800 mb-2">Accesso con SPID</h2>
+        <p class="text-slate-600 text-sm">Autenticazione sicura per il Check-In</p>
+      </div>
+      <button type="button" id="btn-spid"
+        class="w-full bg-[#005CBB] hover:bg-[#004A99] text-white font-semibold text-base py-4 px-6 rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        Entra con SPID
+      </button>
+      <p class="text-xs text-slate-400 mt-4">
+        Sistema Pubblico di Identità Digitale
+      </p>
+    </div>
+  </div>
+
+  <main id="checkin-main" class="max-w-lg mx-auto px-4 py-8 hidden">
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 p-6 sm:p-8">
+
+      <div class="bg-brand-50 border border-brand-200 rounded-lg p-4 mb-6">
+        <p class="text-brand-900 text-sm sm:text-base leading-relaxed text-center font-medium">
+          Compila l'indirizzo di residenza, verificalo sulla mappa e conferma la tua posizione GPS.
+        </p>
+      </div>
+
+      <!-- STEP 1: Indirizzo strutturato -->
+      <section id="sezione-indirizzo" class="mb-6">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">1. Indirizzo di residenza</h2>
+        <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+          Formato consigliato: <strong>Via Roma 15, 00100 Roma RM, Italia</strong> — compila tutti i campi per una geolocalizzazione precisa.
+        </p>
+
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <div class="col-span-2">
+            <label for="via" class="block text-xs font-semibold text-slate-600 mb-1">Via / Piazza</label>
+            <input type="text" id="via" placeholder="Es. Via Garibaldi" autocomplete="street-address"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label for="civico" class="block text-xs font-semibold text-slate-600 mb-1">N. civico</label>
+            <input type="text" id="civico" placeholder="42" inputmode="numeric"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label for="cap" class="block text-xs font-semibold text-slate-600 mb-1">CAP</label>
+            <input type="text" id="cap" maxlength="5" placeholder="20121" inputmode="numeric"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <div>
+            <label for="comune" class="block text-xs font-semibold text-slate-600 mb-1">Comune</label>
+            <input type="text" id="comune" placeholder="Milano"
+              class="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="provincia" class="block text-xs font-semibold text-slate-600 mb-1">Provincia</label>
+          <input type="text" id="provincia" maxlength="2" placeholder="MI"
+            class="w-24 px-3 py-2.5 border border-slate-300 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-brand-500">
+        </div>
+
+        <button type="button" id="btn-posizione-attuale"
+          class="w-full mb-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm py-3 px-4 rounded-lg border border-slate-300 transition-colors disabled:opacity-50">
+          Usa la mia posizione attuale
+        </button>
+
+        <button type="button" id="btn-verifica-indirizzo"
+          class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm py-3 px-4 rounded-lg transition-colors disabled:opacity-50">
+          Verifica indirizzo sulla mappa
+        </button>
+
+        <p id="stato-indirizzo" class="hidden mt-3 text-xs font-medium text-green-700 flex items-center gap-1.5">
+          <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+          Indirizzo confermato
+        </p>
+
+        <div id="wrap-mappa" class="hidden mt-4">
+          <p class="text-xs text-slate-500 mb-2">Mappa — punto blu: residenza registrata</p>
+          <div id="map-container" class="rounded-lg border border-slate-300 overflow-hidden"></div>
+        </div>
+      </section>
+
+      <hr class="border-slate-200 mb-6">
+
+      <!-- STEP 2: Codice Fiscale -->
+      <section class="mb-6">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">2. Codice Fiscale</h2>
+        <input type="text" id="codice-fiscale" maxlength="16" placeholder="Es. RSSMRA80A01H501U"
+          autocomplete="off" spellcheck="false"
+          class="w-full px-4 py-3 border border-slate-300 rounded-lg text-base uppercase tracking-wider
+                 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400">
+      </section>
+
+      <!-- STEP 3: Riepilogo (visibile dopo conferma indirizzo) -->
+      <section id="sezione-riepilogo" class="hidden mb-6">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">3. Riepilogo e conferma</h2>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm space-y-2 mb-4">
+          <div><span class="font-semibold text-slate-600">Codice Fiscale:</span> <span id="riepilogo-cf" class="font-mono">—</span></div>
+          <div><span class="font-semibold text-slate-600">Indirizzo:</span> <span id="riepilogo-indirizzo">—</span></div>
+        </div>
+        <label class="flex items-start gap-3 cursor-pointer mb-4">
+          <input type="checkbox" id="check-conferma" class="mt-1 w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500">
+          <span class="text-sm text-slate-700 leading-relaxed">
+            Confermo di trovarmi nel luogo indicato e autorizzo l'acquisizione della posizione GPS.
+          </span>
+        </label>
+      </section>
+
+      <button type="button" id="btn-conferma" disabled
+        class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-base py-4 px-6 rounded-lg shadow-md
+               transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-600">
+        Acquisisci posizione GPS
+      </button>
+
+      <!-- Anteprima GPS prima della conferma definitiva -->
+      <section id="sezione-preview-gps" class="hidden mt-6 border border-slate-200 rounded-xl overflow-hidden">
+        <div id="preview-header" class="px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Anteprima posizione GPS</h2>
+          <p class="text-xs text-slate-500 mt-1">Verifica che posizione e precisione siano corrette prima di confermare.</p>
+        </div>
+        <div class="p-4">
+          <div id="preview-stato" class="rounded-lg p-3 mb-4 text-sm font-medium"></div>
+          <dl class="grid grid-cols-2 gap-3 text-sm mb-4">
+            <div class="bg-slate-50 rounded-lg p-3">
+              <dt class="text-xs text-slate-500 font-semibold">Latitudine</dt>
+              <dd id="preview-lat" class="font-mono text-slate-800 mt-1">—</dd>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <dt class="text-xs text-slate-500 font-semibold">Longitudine</dt>
+              <dd id="preview-lng" class="font-mono text-slate-800 mt-1">—</dd>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <dt class="text-xs text-slate-500 font-semibold">Precisione GPS</dt>
+              <dd id="preview-accuracy" class="font-semibold mt-1">—</dd>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <dt class="text-xs text-slate-500 font-semibold">Distanza residenza</dt>
+              <dd id="preview-distanza" class="font-semibold mt-1">—</dd>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3 col-span-2">
+              <dt class="text-xs text-slate-500 font-semibold">Connessione di rete</dt>
+              <dd id="preview-rete" class="mt-1 text-slate-800">—</dd>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3 col-span-2">
+              <dt class="text-xs text-slate-500 font-semibold">IP dispositivo (punto di accesso)</dt>
+              <dd id="preview-ip" class="font-mono text-slate-800 mt-1">—</dd>
+            </div>
+          </dl>
+          <div id="preview-doppio-controllo" class="rounded-lg p-3 mb-4 text-sm hidden"></div>
+          <p class="text-xs text-slate-400 mb-4">Il browser non può leggere il nome della rete WiFi (SSID). Usiamo tipo connessione e IP come secondo segnale informativo.</p>
+          <p class="text-xs text-slate-500 mb-4">Mappa sopra: <span class="text-blue-600 font-medium">blu</span> = residenza, <span class="text-green-600 font-medium">verde</span> = tua posizione attuale.</p>
+          <!-- STEP 4: Selfie Ambientale (Anti-Frode) -->
+          <div class="mt-6 border-t border-slate-200 pt-6">
+            <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">4. Selfie Ambientale (Obbligatorio)</h3>
+            <p class="text-xs text-slate-500 mb-4">Scatta una foto per confermare la tua presenza fisica. La foto verrà salvata come prova del check-in.</p>
+            
+            <div class="space-y-3">
+              <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
+                <video id="camera-preview" class="w-full h-full object-cover" autoplay playsinline muted></video>
+                <canvas id="camera-canvas" class="hidden"></canvas>
+                <img id="camera-photo" class="w-full h-full object-cover hidden">
+                <div id="camera-placeholder" class="absolute inset-0 flex items-center justify-center bg-slate-100">
+                  <div class="text-center">
+                    <svg class="w-12 h-12 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <p class="text-xs text-slate-500">Fotocamera non attiva</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex gap-2">
+                <button type="button" id="btn-attiva-camera"
+                  class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm py-2.5 px-4 rounded-lg transition-colors">
+                  Attiva fotocamera
+                </button>
+                <button type="button" id="btn-scatta-foto" disabled
+                  class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium text-sm py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  Scatta foto
+                </button>
+                <button type="button" id="btn-riprova-foto" class="hidden"
+                  class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm py-2.5 px-4 rounded-lg border border-slate-300">
+                  Riprova
+                </button>
+              </div>
+              
+              <p id="camera-error" class="hidden text-xs text-red-600"></p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 mt-6">
+            <button type="button" id="btn-conferma-definitivo" disabled
+              class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+              Conferma check-in definitivo
+            </button>
+            <button type="button" id="btn-riprova-gps"
+              class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 px-6 rounded-lg border border-slate-300">
+              Riprova acquisizione GPS
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <p id="gps-accuracy" class="hidden mt-3 text-center text-xs text-slate-500"></p>
+
+      <div id="feedback-area" class="hidden mt-6"></div>
+    </div>
+
+    <p class="text-center text-xs text-slate-400 mt-6">
+      I dati di posizione vengono acquisiti esclusivamente al momento del Check-In.
+    </p>
+  </main>
+
+  <!-- Modal conferma indirizzo geocodificato -->
+  <div id="modal-indirizzo" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="absolute inset-0 bg-black/50" id="modal-indirizzo-backdrop"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-bold text-slate-800 mb-2">Conferma indirizzo</h2>
+      <p class="text-sm text-slate-600 mb-3">Abbiamo individuato questo punto sulla mappa:</p>
+      <p id="modal-indirizzo-testo" class="text-sm font-medium text-brand-800 bg-brand-50 border border-brand-200 rounded-lg p-3 mb-4 leading-relaxed"></p>
+      <div id="modal-indirizzo-mappa" class="h-40 rounded-lg border border-slate-300 overflow-hidden mb-4"></div>
+      <p class="text-sm text-slate-600 mb-4">È corretto?</p>
+      <div class="flex gap-3">
+        <button type="button" id="modal-indirizzo-no"
+          class="flex-1 py-3 px-4 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50">
+          No, correggo
+        </button>
+        <button type="button" id="modal-indirizzo-si"
+          class="flex-1 py-3 px-4 rounded-lg bg-brand-600 text-white font-semibold hover:bg-brand-700">
+          Sì, confermo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Popup utente verificato -->
+  <div id="modal-verificato" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div id="modal-backdrop" class="absolute inset-0 bg-black/50"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl p-8 max-w-sm w-full text-center">
+      <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <h2 class="text-xl font-bold text-green-800 mb-2">Utente verificato</h2>
+      <p class="text-sm text-slate-600 mb-6">La tua posizione corrisponde all'indirizzo di residenza registrato.</p>
+      <button type="button" id="modal-chiudi" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 px-6 rounded-lg">OK</button>
+    </div>
+  </div>
+
+  <script>
+    const RAGGIO_VERIFICA_METRI = 30;
+    const BTN_GPS_DEFAULT = 'Acquisisci posizione GPS';
+    const BTN_GPS_LOADING = 'Acquisizione in corso...';
+    const ACCURACY_OTTIMA = 15;
+    const ACCURACY_ACCETTABILE = 30;
+    const NOMINATIM_HEADERS = { 'Accept-Language': 'it' };
+
+    const fields = {
+      via: document.getElementById('via'),
+      civico: document.getElementById('civico'),
+      cap: document.getElementById('cap'),
+      comune: document.getElementById('comune'),
+      provincia: document.getElementById('provincia'),
+    };
+    const inputCF = document.getElementById('codice-fiscale');
+    const btnPosizione = document.getElementById('btn-posizione-attuale');
+    const btnVerificaIndirizzo = document.getElementById('btn-verifica-indirizzo');
+    const btnConferma = document.getElementById('btn-conferma');
+    const btnConfermaDefinitivo = document.getElementById('btn-conferma-definitivo');
+    const btnRiprovaGps = document.getElementById('btn-riprova-gps');
+    const sezionePreviewGps = document.getElementById('sezione-preview-gps');
+    const statoIndirizzo = document.getElementById('stato-indirizzo');
+    const wrapMappa = document.getElementById('wrap-mappa');
+    const sezioneRiepilogo = document.getElementById('sezione-riepilogo');
+    const riepilogoCF = document.getElementById('riepilogo-cf');
+    const riepilogoIndirizzo = document.getElementById('riepilogo-indirizzo');
+    const checkConferma = document.getElementById('check-conferma');
+    const feedbackArea = document.getElementById('feedback-area');
+    const gpsAccuracyEl = document.getElementById('gps-accuracy');
+    const modalIndirizzo = document.getElementById('modal-indirizzo');
+    const modalIndirizzoTesto = document.getElementById('modal-indirizzo-testo');
+    const modalIndirizzoSi = document.getElementById('modal-indirizzo-si');
+    const modalIndirizzoNo = document.getElementById('modal-indirizzo-no');
+    const modalVerificato = document.getElementById('modal-verificato');
+    const modalChiudi = document.getElementById('modal-chiudi');
+    const btnSpid = document.getElementById('btn-spid');
+    const spidScreen = document.getElementById('spid-screen');
+    const checkinMain = document.getElementById('checkin-main');
+    const btnAttivaCamera = document.getElementById('btn-attiva-camera');
+    const btnScattaFoto = document.getElementById('btn-scatta-foto');
+    const btnRiprovaFoto = document.getElementById('btn-riprova-foto');
+    const cameraPreview = document.getElementById('camera-preview');
+    const cameraCanvas = document.getElementById('camera-canvas');
+    const cameraPhoto = document.getElementById('camera-photo');
+    const cameraPlaceholder = document.getElementById('camera-placeholder');
+    const cameraError = document.getElementById('camera-error');
+
+    let indirizzoConfermato = false;
+    let cameraStream = null;
+    let fotoBase64 = null;
+    let coordsResidenza = null;
+    let indirizzoRisolto = '';
+    let pendingGeocode = null;
+    let mapMain = null;
+    let mapModal = null;
+    let markerResidenza = null;
+    let markerGps = null;
+    let circleRaggio = null;
+    let richiestaAttiva = null;
+    let countdownInterval = null;
+    let modoRichiesta = false;
+    let gpsPreview = null;
+
+    Object.values(fields).forEach((el) => {
+      el.addEventListener('input', function () {
+        if (!modoRichiesta) resetConfermaIndirizzo();
+      });
+    });
+    fields.provincia.addEventListener('input', function () {
+      this.value = this.value.toUpperCase();
+    });
+    inputCF.addEventListener('input', function () {
+      const pos = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(pos, pos);
+      aggiornaRiepilogo();
+      aggiornaBtnConferma();
+    });
+    checkConferma.addEventListener('change', aggiornaBtnConferma);
+
+    document.getElementById('modal-indirizzo-backdrop').addEventListener('click', chiudiModalIndirizzo);
+    document.getElementById('modal-backdrop').addEventListener('click', () => modalVerificato.classList.add('hidden'));
+    modalChiudi.addEventListener('click', () => modalVerificato.classList.add('hidden'));
+    modalIndirizzoNo.addEventListener('click', chiudiModalIndirizzo);
+    modalIndirizzoSi.addEventListener('click', confermaIndirizzoDaModal);
+
+    btnPosizione.addEventListener('click', usaPosizioneAttuale);
+    btnVerificaIndirizzo.addEventListener('click', avviaVerificaIndirizzo);
+    btnConferma.addEventListener('click', acquisisciPreviewGps);
+    btnConfermaDefinitivo.addEventListener('click', confermaCheckInDefinitivo);
+    btnRiprovaGps.addEventListener('click', nascondiPreviewGps);
+    btnSpid.addEventListener('click', handleSpidLogin);
+    btnAttivaCamera.addEventListener('click', attivaCamera);
+    btnScattaFoto.addEventListener('click', scattaFoto);
+    btnRiprovaFoto.addEventListener('click', riprovaFoto);
+
+    function handleSpidLogin() {
+      btnSpid.disabled = true;
+      btnSpid.textContent = 'Autenticazione in corso...';
+      
+      setTimeout(() => {
+        spidScreen.classList.add('hidden');
+        checkinMain.classList.remove('hidden');
+        
+        inputCF.value = 'RSSMRA80A01H501U';
+        inputCF.disabled = true;
+        inputCF.classList.add('bg-slate-100', 'text-slate-500');
+        
+        aggiornaRiepilogo();
+        aggiornaBtnConferma();
+      }, 2000);
+    }
+
+    async function attivaCamera() {
+      cameraError.classList.add('hidden');
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        cameraPreview.srcObject = cameraStream;
+        cameraPlaceholder.classList.add('hidden');
+        cameraPhoto.classList.add('hidden');
+        cameraPreview.classList.remove('hidden');
+        btnAttivaCamera.classList.add('hidden');
+        btnScattaFoto.disabled = false;
+        btnRiprovaFoto.classList.add('hidden');
+      } catch (e) {
+        cameraError.textContent = 'Impossibile accedere alla fotocamera: ' + (e.message || 'Permesso negato o dispositivo non supportato');
+        cameraError.classList.remove('hidden');
+      }
+    }
+
+    function scattaFoto() {
+      if (!cameraStream) return;
+      
+      const context = cameraCanvas.getContext('2d');
+      cameraCanvas.width = cameraPreview.videoWidth;
+      cameraCanvas.height = cameraPreview.videoHeight;
+      context.drawImage(cameraPreview, 0, 0);
+      
+      fotoBase64 = cameraCanvas.toDataURL('image/jpeg', 0.8);
+      
+      cameraPreview.classList.add('hidden');
+      cameraPhoto.src = fotoBase64;
+      cameraPhoto.classList.remove('hidden');
+      btnScattaFoto.classList.add('hidden');
+      btnRiprovaFoto.classList.remove('hidden');
+      
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      
+      aggiornaBtnConfermaDefinitivo();
+    }
+
+    function riprovaFoto() {
+      fotoBase64 = null;
+      cameraPhoto.classList.add('hidden');
+      cameraPlaceholder.classList.remove('hidden');
+      btnRiprovaFoto.classList.add('hidden');
+      btnAttivaCamera.classList.remove('hidden');
+      btnScattaFoto.disabled = true;
+      aggiornaBtnConfermaDefinitivo();
+    }
+
+    function controllaMockLocation(position) {
+      const coords = position.coords;
+      const warnings = [];
+      
+      if (coords.accuracy === 0 || coords.accuracy > 1000) {
+        warnings.push('Precisione GPS anomala (0m o >1000m)');
+      }
+      
+      if (coords.altitude === null || coords.altitude === 0) {
+        warnings.push('Altitudine mancante (possibile mock location)');
+      }
+      
+      if (coords.altitudeAccuracy === null || coords.altitudeAccuracy > 100) {
+        warnings.push('Precisione altitudine sospetta');
+      }
+      
+      const timestampDiff = Math.abs(Date.now() - position.timestamp);
+      if (timestampDiff > 60000) {
+        warnings.push('Timestamp GPS vecchio di oltre 1 minuto');
+      }
+      
+      if (coords.speed === 0 && coords.heading === null) {
+        warnings.push('Dati movimento mancanti');
+      }
+      
+      return warnings;
+    }
+
+    function buildIndirizzoString() {
+      const via = fields.via.value.trim();
+      const civico = fields.civico.value.trim();
+      const cap = fields.cap.value.trim();
+      const comune = fields.comune.value.trim();
+      const prov = fields.provincia.value.trim().toUpperCase();
+      if (!via || !civico || !cap || !comune || !prov) return '';
+      return `${via} ${civico}, ${cap} ${comune} ${prov}, Italia`;
+    }
+
+    function validaCampiIndirizzo() {
+      const mancanti = [];
+      if (!fields.via.value.trim()) mancanti.push('Via');
+      if (!fields.civico.value.trim()) mancanti.push('N. civico');
+      if (!fields.cap.value.trim() || fields.cap.value.trim().length !== 5) mancanti.push('CAP (5 cifre)');
+      if (!fields.comune.value.trim()) mancanti.push('Comune');
+      if (!fields.provincia.value.trim() || fields.provincia.value.trim().length !== 2) mancanti.push('Provincia (2 lettere)');
+      return mancanti;
+    }
+
+    function resetConfermaIndirizzo() {
+      indirizzoConfermato = false;
+      coordsResidenza = null;
+      indirizzoRisolto = '';
+      statoIndirizzo.classList.add('hidden');
+      wrapMappa.classList.add('hidden');
+      sezioneRiepilogo.classList.add('hidden');
+      checkConferma.checked = false;
+      aggiornaBtnConferma();
+    }
+
+    function aggiornaRiepilogo() {
+      const cf = inputCF.value.trim().toUpperCase() || '—';
+      riepilogoCF.textContent = cf;
+      riepilogoIndirizzo.textContent = buildIndirizzoString() || indirizzoRisolto || '—';
+    }
+
+    function aggiornaBtnConferma() {
+      const cfOk = inputCF.value.trim().length === 16;
+      const checkOk = checkConferma.checked;
+      btnConferma.disabled = !(indirizzoConfermato && cfOk && checkOk);
+    }
+
+    function aggiornaBtnConfermaDefinitivo() {
+      btnConfermaDefinitivo.disabled = !fotoBase64;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function distanzaMetri(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = (d) => (d * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    async function geocodeQuery(query) {
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&q=' +
+        encodeURIComponent(query) + '&limit=1&countrycodes=it';
+      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+      const data = await res.json();
+      if (!data.length) throw new Error('Indirizzo non trovato. Controlla i dati inseriti.');
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+        displayName: data[0].display_name
+      };
+    }
+
+    async function reverseGeocode(lat, lng) {
+      const url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' +
+        lat + '&lon=' + lng + '&addressdetails=1';
+      const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+      const data = await res.json();
+      if (!data || !data.address) throw new Error('Impossibile determinare l\'indirizzo dalla posizione.');
+      const a = data.address;
+      fields.via.value = a.road || a.pedestrian || a.footway || a.street || '';
+      fields.civico.value = a.house_number || '';
+      fields.cap.value = a.postcode || '';
+      fields.comune.value = a.city || a.town || a.village || a.municipality || '';
+      fields.provincia.value = (a['ISO3166-2-lvl4'] || '').replace('IT-', '').slice(0, 2) ||
+        (a.state || '').slice(0, 2).toUpperCase();
+      resetConfermaIndirizzo();
+      return data.display_name;
+    }
+
+    function getPosition() {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        });
+      });
+    }
+
+    function creaIcona(colore) {
+      return L.divIcon({
+        className: '',
+        html: `<div style="background:${colore};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+    }
+
+    function initMappa(containerId) {
+      const map = L.map(containerId, { zoomControl: true, attributionControl: true });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+      return map;
+    }
+
+    function aggiornaMappaPrincipale(lat, lng, gpsCoords) {
+      wrapMappa.classList.remove('hidden');
+      if (!mapMain) {
+        mapMain = initMappa('map-container');
+        markerResidenza = L.marker([lat, lng], { icon: creaIcona('#2563eb') }).addTo(mapMain);
+        markerResidenza.bindPopup('Residenza registrata');
+        circleRaggio = L.circle([lat, lng], {
+          radius: RAGGIO_VERIFICA_METRI,
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.12,
+          weight: 2
+        }).addTo(mapMain);
+      } else {
+        markerResidenza.setLatLng([lat, lng]);
+        circleRaggio.setLatLng([lat, lng]);
+      }
+
+      if (gpsCoords) {
+        if (!markerGps) {
+          markerGps = L.marker([gpsCoords.lat, gpsCoords.lng], { icon: creaIcona('#16a34a') }).addTo(mapMain);
+          markerGps.bindPopup('La tua posizione GPS');
+        } else {
+          markerGps.setLatLng([gpsCoords.lat, gpsCoords.lng]);
+        }
+        const bounds = L.latLngBounds([[lat, lng], [gpsCoords.lat, gpsCoords.lng]]);
+        mapMain.fitBounds(bounds.pad(0.35));
+      } else {
+        if (markerGps) { mapMain.removeLayer(markerGps); markerGps = null; }
+        mapMain.setView([lat, lng], 17);
+      }
+      setTimeout(() => mapMain.invalidateSize(), 150);
+    }
+
+    function mostraMappaModal(lat, lng) {
+      if (mapModal) { mapModal.remove(); mapModal = null; }
+      mapModal = initMappa('modal-indirizzo-mappa');
+      L.marker([lat, lng], { icon: creaIcona('#2563eb') }).addTo(mapModal);
+      L.circle([lat, lng], {
+        radius: RAGGIO_VERIFICA_METRI,
+        color: '#2563eb',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.15,
+        weight: 2
+      }).addTo(mapModal);
+      mapModal.setView([lat, lng], 17);
+      setTimeout(() => mapModal.invalidateSize(), 200);
+    }
+
+    function chiudiModalIndirizzo() {
+      modalIndirizzo.classList.add('hidden');
+      pendingGeocode = null;
+      if (mapModal) { mapModal.remove(); mapModal = null; }
+    }
+
+    async function avviaVerificaIndirizzo() {
+      hideFeedback();
+      const mancanti = validaCampiIndirizzo();
+      if (mancanti.length) {
+        showError('Compila correttamente: ' + mancanti.join(', ') + '.');
+        return;
+      }
+      btnVerificaIndirizzo.disabled = true;
+      btnVerificaIndirizzo.textContent = 'Verifica in corso...';
+      try {
+        const query = buildIndirizzoString();
+        const geo = await geocodeQuery(query);
+        pendingGeocode = geo;
+        modalIndirizzoTesto.textContent = geo.displayName;
+        modalIndirizzo.classList.remove('hidden');
+        mostraMappaModal(geo.lat, geo.lng);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        btnVerificaIndirizzo.disabled = false;
+        btnVerificaIndirizzo.textContent = 'Verifica indirizzo sulla mappa';
+      }
+    }
+
+    function confermaIndirizzoDaModal() {
+      if (!pendingGeocode) return;
+      coordsResidenza = { lat: pendingGeocode.lat, lng: pendingGeocode.lng };
+      indirizzoRisolto = pendingGeocode.displayName;
+      indirizzoConfermato = true;
+      chiudiModalIndirizzo();
+      statoIndirizzo.classList.remove('hidden');
+      aggiornaMappaPrincipale(coordsResidenza.lat, coordsResidenza.lng);
+      sezioneRiepilogo.classList.remove('hidden');
+      aggiornaRiepilogo();
+      aggiornaBtnConferma();
+      hideFeedback();
+    }
+
+    async function usaPosizioneAttuale() {
+      if (!navigator.geolocation) {
+        showError('Geolocalizzazione non supportata dal browser.');
+        return;
+      }
+      btnPosizione.disabled = true;
+      btnPosizione.textContent = 'Acquisizione posizione...';
+      try {
+        const pos = await getPosition();
+        const nome = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+        showFeedback(`<div class="bg-brand-50 border border-brand-200 rounded-lg p-3 text-sm text-brand-900">Posizione rilevata: ${escapeHtml(nome)}. Verifica i campi e conferma l'indirizzo.</div>`);
+      } catch (e) {
+        if (e.code === 1 || e.code === 2 || e.code === 3) {
+          showError('Attenzione: Permesso GPS obbligatorio per usare la posizione attuale.');
+        } else {
+          showError(e.message || 'Errore durante l\'acquisizione della posizione.');
+        }
+      } finally {
+        btnPosizione.disabled = false;
+        btnPosizione.textContent = 'Usa la mia posizione attuale';
+      }
+    }
+
+    function showFeedback(html) {
+      feedbackArea.innerHTML = html;
+      feedbackArea.classList.remove('hidden');
+    }
+
+    function hideFeedback() {
+      feedbackArea.innerHTML = '';
+      feedbackArea.classList.add('hidden');
+      gpsAccuracyEl.classList.add('hidden');
+    }
+
+    function showError(message) {
+      showFeedback(`<div class="bg-red-50 border border-red-300 rounded-lg p-4 text-red-700 text-sm leading-relaxed" role="alert">${message}</div>`);
+    }
+
+    function formatTimestamp(date) {
+      return date.toLocaleString('it-IT', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+    function messaggioErroreDistanza(distanza, accuracy) {
+      const dist = Math.round(distanza);
+      let msg = `<strong>Sei a ${dist} metri</strong> dall'indirizzo di residenza registrato. `;
+      msg += `Per completare il Check-In devi trovarti entro <strong>${RAGGIO_VERIFICA_METRI} metri</strong>.`;
+      if (accuracy > RAGGIO_VERIFICA_METRI) {
+        msg += `<br><br>La precisione GPS è di circa <strong>±${Math.round(accuracy)} m</strong>: spostati in un punto con segnale migliore (vicino a una finestra o all'esterno) e riprova.`;
+      } else if (dist <= 80) {
+        msg += '<br><br>Avvicinati all\'indirizzo indicato e riprova.';
+      }
+      return msg;
+    }
+
+    function buildPayloadCheckin(esito, motivo, extra = {}) {
+      const cf = inputCF.value.trim().toUpperCase();
+      const indirizzo = buildIndirizzoString() || indirizzoRisolto || '';
+      const payload = {
+        esito,
+        motivo: motivo || '',
+        codiceFiscale: cf || 'NON_INSERITO',
+        indirizzo,
+        via: fields.via.value.trim(),
+        civico: fields.civico.value.trim(),
+        cap: fields.cap.value.trim(),
+        comune: fields.comune.value.trim(),
+        provincia: fields.provincia.value.trim().toUpperCase(),
+        latitudineResidenza: coordsResidenza ? coordsResidenza.lat : null,
+        longitudineResidenza: coordsResidenza ? coordsResidenza.lng : null,
+        latitudine: null,
+        longitudine: null,
+        distanzaMetri: null,
+        precisioneGps: null,
+        fotoSelfie: fotoBase64 || null,
+        timestamp: new Date().toISOString(),
+        ...extra,
+      };
+      if (richiestaAttiva) payload.richiestaToken = richiestaAttiva.token;
+      return payload;
+    }
+
+    function richiestaScaduta() {
+      if (!richiestaAttiva) return false;
+      return new Date(richiestaAttiva.scadeAt).getTime() <= Date.now() ||
+        richiestaAttiva.stato === 'scaduta';
+    }
+
+    function richiestaBloccata() {
+      return richiestaAttiva && (richiestaScaduta() || richiestaAttiva.stato === 'completata');
+    }
+
+    function aggiornaCountdown() {
+      if (!richiestaAttiva || richiestaAttiva.stato !== 'in_attesa') return;
+      const rimanente = new Date(richiestaAttiva.scadeAt).getTime() - Date.now();
+      const el = document.getElementById('countdown-richiesta');
+      if (rimanente <= 0) {
+        richiestaAttiva.stato = 'scaduta';
+        mostraBannerBloccato('Tempo scaduto: non è più possibile completare il check-in.');
+        clearInterval(countdownInterval);
+        btnConferma.disabled = true;
+        if (el) el.textContent = '00:00';
+        return;
+      }
+      const min = Math.floor(rimanente / 60000);
+      const sec = Math.floor((rimanente % 60000) / 1000);
+      if (el) el.textContent = String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    }
+
+    function mostraBannerBloccato(msg) {
+      document.getElementById('banner-richiesta').classList.add('hidden');
+      const banner = document.getElementById('banner-bloccato');
+      banner.querySelector('div').textContent = msg;
+      banner.classList.remove('hidden');
+    }
+
+    function bloccaCampiRichiesta() {
+      inputCF.readOnly = true;
+      inputCF.classList.add('bg-slate-100');
+      Object.values(fields).forEach((f) => {
+        f.readOnly = true;
+        f.classList.add('bg-slate-100');
+      });
+      btnPosizione.classList.add('hidden');
+      btnVerificaIndirizzo.classList.add('hidden');
+    }
+
+    async function applicaRichiesta(r) {
+      richiestaAttiva = r;
+      modoRichiesta = true;
+      fields.via.value = r.via;
+      fields.civico.value = r.civico;
+      fields.cap.value = r.cap;
+      fields.comune.value = r.comune;
+      fields.provincia.value = r.provincia;
+      inputCF.value = r.codiceFiscale;
+      bloccaCampiRichiesta();
+
+      if (r.stato === 'completata') {
+        mostraBannerBloccato('Check-in già completato per questa richiesta.');
+        btnConferma.disabled = true;
+        return;
+      }
+      if (r.stato === 'scaduta' || richiestaScaduta()) {
+        mostraBannerBloccato('Tempo scaduto: dovevi completare il check-in entro 15 minuti.');
+        btnConferma.disabled = true;
+        return;
+      }
+
+      coordsResidenza = { lat: r.latitudineResidenza, lng: r.longitudineResidenza };
+      indirizzoRisolto = r.indirizzo;
+      indirizzoConfermato = true;
+      statoIndirizzo.classList.remove('hidden');
+      aggiornaMappaPrincipale(r.latitudineResidenza, r.longitudineResidenza);
+      sezioneRiepilogo.classList.remove('hidden');
+      aggiornaRiepilogo();
+
+      document.getElementById('banner-richiesta').classList.remove('hidden');
+      aggiornaCountdown();
+      countdownInterval = setInterval(aggiornaCountdown, 1000);
+
+      document.querySelector('.bg-brand-50 p').textContent =
+        'Hai ricevuto una richiesta di check-in. Conferma la tua presenza alla residenza registrata entro il tempo indicato.';
+    }
+
+    async function initRichiestaDaUrl() {
+      const token = new URLSearchParams(window.location.search).get('r');
+      if (!token) return;
+      try {
+        const res = await fetch('/api/richieste/' + token);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Richiesta non valida');
+        await applicaRichiesta(data.richiesta);
+        aggiornaBtnConferma();
+      } catch (e) {
+        mostraBannerBloccato(e.message || 'Richiesta check-in non valida.');
+        btnConferma.disabled = true;
+      }
+    }
+
+    async function salvaCheckin(payload) {
+      try {
+        await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Registrazione silenziosa: non blocca l'UX utente
+      }
+    }
+
+    async function registraFallimento(motivo, extra = {}) {
+      await salvaCheckin(buildPayloadCheckin('fallito', motivo, extra));
+    }
+
+    function nascondiPreviewGps() {
+      gpsPreview = null;
+      sezionePreviewGps.classList.add('hidden');
+      document.getElementById('preview-doppio-controllo').classList.add('hidden');
+      btnConferma.classList.remove('hidden');
+      btnConferma.disabled = false;
+      btnConferma.textContent = BTN_GPS_DEFAULT;
+      gpsAccuracyEl.classList.add('hidden');
+      aggiornaBtnConferma();
+    }
+
+    function valutaPreview(distanza, accuracy) {
+      if (distanza <= RAGGIO_VERIFICA_METRI && accuracy <= ACCURACY_OTTIMA) {
+        return {
+          cls: 'bg-green-50 border border-green-300 text-green-800',
+          msg: 'GPS — entro ' + RAGGIO_VERIFICA_METRI + ' m dalla residenza, buona precisione (±' + Math.round(accuracy) + ' m).',
+        };
+      }
+      if (distanza <= RAGGIO_VERIFICA_METRI && accuracy <= ACCURACY_ACCETTABILE) {
+        return {
+          cls: 'bg-amber-50 border border-amber-300 text-amber-900',
+          msg: 'GPS — entro raggio, precisione moderata (±' + Math.round(accuracy) + ' m). Valuta se riprovare.',
+        };
+      }
+      if (distanza > RAGGIO_VERIFICA_METRI) {
+        return {
+          cls: 'bg-red-50 border border-red-300 text-red-800',
+          msg: 'GPS — sei a ' + Math.round(distanza) + ' m dalla residenza (max ' + RAGGIO_VERIFICA_METRI + ' m). Puoi comunque confermare.',
+        };
+      }
+      return {
+        cls: 'bg-red-50 border border-red-300 text-red-800',
+        msg: 'GPS — precisione bassa (±' + Math.round(accuracy) + ' m). Puoi comunque confermare.',
+      };
+    }
+
+    function labelTipoRete(tipo) {
+      const map = {
+        wifi: 'WiFi',
+        cellular: 'Dati mobili',
+        ethernet: 'Ethernet',
+        none: 'Nessuna connessione',
+        unknown: 'Non rilevabile dal browser',
+      };
+      return map[tipo] || tipo;
+    }
+
+    function isIpLocale(ip) {
+      return /^192\.168\./.test(ip) || /^10\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+    }
+
+    function valutaDoppioControllo(distanza, accuracy, rete) {
+      const gpsInRaggio = distanza <= RAGGIO_VERIFICA_METRI;
+      const suWifi = rete.tipo === 'wifi';
+      const ipLocale = isIpLocale(rete.ip);
+
+      if (gpsInRaggio && suWifi && ipLocale) {
+        return {
+          cls: 'bg-green-50 border border-green-300 text-green-800',
+          msg: 'Doppio controllo favorevole: GPS in raggio + WiFi con IP locale (' + rete.ip + ').',
+        };
+      }
+      if (gpsInRaggio && suWifi) {
+        return {
+          cls: 'bg-green-50 border border-green-300 text-green-800',
+          msg: 'Doppio controllo parziale: GPS in raggio + connessione WiFi rilevata.',
+        };
+      }
+      if (gpsInRaggio && rete.tipo === 'cellular') {
+        return {
+          cls: 'bg-amber-50 border border-amber-300 text-amber-900',
+          msg: 'GPS in raggio — connessione dati mobili (WiFi non rilevato).',
+        };
+      }
+      if (!gpsInRaggio && suWifi) {
+        return {
+          cls: 'bg-amber-50 border border-amber-300 text-amber-900',
+          msg: 'WiFi rilevato ma GPS fuori raggio residenza.',
+        };
+      }
+      return {
+        cls: 'bg-slate-50 border border-slate-300 text-slate-700',
+        msg: 'Doppio controllo rete: ' + labelTipoRete(rete.tipo) +
+          (rete.ip ? ' — IP ' + rete.ip : '') + '.',
+      };
+    }
+
+    async function raccogliInfoRete() {
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      let ip = '';
+      try {
+        const res = await fetch('/api/client-info');
+        const data = await res.json();
+        ip = data.ip || '';
+      } catch { /* opzionale */ }
+      return {
+        tipo: conn?.type || 'unknown',
+        effectiveType: conn?.effectiveType || '',
+        downlink: conn?.downlink ?? null,
+        ip,
+      };
+    }
+
+    function mostraPreviewGps(lat, lng, accuracy, distanza, rete) {
+      const doppio = valutaDoppioControllo(distanza, accuracy, rete);
+      gpsPreview = {
+        lat, lng, accuracy, distanza,
+        timestamp: new Date(),
+        rete,
+        doppioControllo: doppio.msg,
+      };
+      const valutazione = valutaPreview(distanza, accuracy);
+
+      document.getElementById('preview-lat').textContent = lat.toFixed(6);
+      document.getElementById('preview-lng').textContent = lng.toFixed(6);
+      document.getElementById('preview-accuracy').textContent = '±' + Math.round(accuracy) + ' m';
+      document.getElementById('preview-distanza').textContent = Math.round(distanza) + ' m';
+
+      const accuracyEl = document.getElementById('preview-accuracy');
+      accuracyEl.className = 'font-semibold mt-1 ' +
+        (accuracy <= ACCURACY_OTTIMA ? 'text-green-700' : accuracy <= ACCURACY_ACCETTABILE ? 'text-amber-700' : 'text-red-700');
+
+      const distEl = document.getElementById('preview-distanza');
+      distEl.className = 'font-semibold mt-1 ' + (distanza <= RAGGIO_VERIFICA_METRI ? 'text-green-700' : 'text-red-700');
+
+      let reteTesto = labelTipoRete(rete.tipo);
+      if (rete.effectiveType) reteTesto += ' (' + rete.effectiveType.toUpperCase() + ')';
+      if (rete.downlink != null) reteTesto += ' — ' + rete.downlink + ' Mbps';
+      document.getElementById('preview-rete').textContent = reteTesto;
+      document.getElementById('preview-ip').textContent = rete.ip || 'Non disponibile';
+
+      const statoEl = document.getElementById('preview-stato');
+      statoEl.className = 'rounded-lg p-3 mb-4 text-sm font-medium ' + valutazione.cls;
+      statoEl.textContent = valutazione.msg;
+
+      const doppioEl = document.getElementById('preview-doppio-controllo');
+      doppioEl.className = 'rounded-lg p-3 mb-4 text-sm font-medium ' + doppio.cls;
+      doppioEl.textContent = doppio.msg;
+      doppioEl.classList.remove('hidden');
+
+      sezionePreviewGps.classList.remove('hidden');
+      btnConferma.classList.add('hidden');
+      sezionePreviewGps.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    async function validaPrerequisitiCheckIn() {
+      if (richiestaBloccata()) {
+        showError('Non è più possibile completare questa richiesta di check-in.');
+        return null;
+      }
+      if (modoRichiesta && richiestaScaduta()) {
+        await registraFallimento('Tempo scaduto: check-in oltre i 15 minuti');
+        mostraBannerBloccato('Tempo scaduto: non è più possibile completare il check-in.');
+        return null;
+      }
+
+      const cf = inputCF.value.trim().toUpperCase();
+      const mancanti = validaCampiIndirizzo();
+
+      if (!indirizzoConfermato || !coordsResidenza) {
+        await registraFallimento('Indirizzo non verificato o non confermato');
+        showError('Verifica e conferma prima l\'indirizzo di residenza (passo 1).');
+        return null;
+      }
+      if (mancanti.length) {
+        await registraFallimento('Indirizzo incompleto: ' + mancanti.join(', '));
+        showError('Indirizzo incompleto. Compila: ' + mancanti.join(', ') + '.');
+        return null;
+      }
+      if (cf.length !== 16) {
+        await registraFallimento('Codice Fiscale non valido (' + (cf.length || 0) + ' caratteri)');
+        showError('Errore: il Codice Fiscale deve essere composto esattamente da 16 caratteri.');
+        return null;
+      }
+      if (!checkConferma.checked) {
+        await registraFallimento('Conferma riepilogo non selezionata');
+        showError('Spunta la casella di conferma nel riepilogo per procedere.');
+        return null;
+      }
+      if (!navigator.geolocation) {
+        await registraFallimento('Geolocalizzazione non supportata dal browser');
+        showError('Attenzione: Permesso GPS obbligatorio per completare il Check-In');
+        return null;
+      }
+      return cf;
+    }
+
+    async function acquisisciPreviewGps() {
+      hideFeedback();
+      nascondiPreviewGps();
+
+      const cf = await validaPrerequisitiCheckIn();
+      if (!cf) return;
+
+      btnConferma.disabled = true;
+      btnConferma.textContent = BTN_GPS_LOADING;
+      gpsAccuracyEl.classList.remove('hidden');
+      gpsAccuracyEl.textContent = 'Acquisizione segnale GPS in corso...';
+
+      try {
+        const position = await getPosition();
+        
+        const mockWarnings = controllaMockLocation(position);
+        if (mockWarnings.length > 0) {
+          await registraFallimento('Sospetto Mock Location GPS: ' + mockWarnings.join('; '));
+          showError('Sicurezza: Posizione GPS sospetta. ' + mockWarnings.join(' ') + '. Disabilita eventuali app di fake location e riprova.');
+          btnConferma.textContent = BTN_GPS_DEFAULT;
+          btnConferma.disabled = false;
+          return;
+        }
+        
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = position.coords.accuracy || 0;
+        const distanza = distanzaMetri(lat, lng, coordsResidenza.lat, coordsResidenza.lng);
+        const rete = await raccogliInfoRete();
+
+        gpsAccuracyEl.textContent = 'Anteprima acquisita — precisione ±' + Math.round(accuracy) + ' m';
+        aggiornaMappaPrincipale(coordsResidenza.lat, coordsResidenza.lng, { lat, lng });
+        wrapMappa.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        mostraPreviewGps(lat, lng, accuracy, distanza, rete);
+      } catch (error) {
+        gpsAccuracyEl.classList.add('hidden');
+        if (error.code === 1 || error.code === 2 || error.code === 3) {
+          await registraFallimento('Permesso GPS negato o non disponibile');
+          showError('Attenzione: Permesso GPS obbligatorio per completare il Check-In');
+        } else {
+          await registraFallimento(error.message || 'Errore durante acquisizione GPS');
+          showError(error.message || 'Si è verificato un errore durante la verifica. Riprova.');
+        }
+        btnConferma.textContent = BTN_GPS_DEFAULT;
+        aggiornaBtnConferma();
+      }
+    }
+
+    async function confermaCheckInDefinitivo() {
+      if (!gpsPreview) return;
+      hideFeedback();
+
+      const cf = await validaPrerequisitiCheckIn();
+      if (!cf) return;
+
+      const { lat, lng, accuracy, distanza, timestamp, rete, doppioControllo } = gpsPreview;
+      const indirizzo = buildIndirizzoString();
+
+      if (distanza > RAGGIO_VERIFICA_METRI) {
+        await registraFallimento('Posizione fuori raggio (' + Math.round(distanza) + ' m, max ' + RAGGIO_VERIFICA_METRI + ' m)', {
+          latitudine: lat, longitudine: lng, distanzaMetri: Math.round(distanza), precisioneGps: Math.round(accuracy),
+          reteTipo: rete.tipo, reteEffectiveType: rete.effectiveType, ipClient: rete.ip, doppioControllo,
+        });
+        showError(messaggioErroreDistanza(distanza, accuracy));
+        return;
+      }
+
+      btnConfermaDefinitivo.disabled = true;
+      btnConfermaDefinitivo.textContent = 'Invio in corso...';
+
+      const payload = buildPayloadCheckin('verificato', '', {
+        latitudine: lat,
+        longitudine: lng,
+        distanzaMetri: Math.round(distanza),
+        precisioneGps: Math.round(accuracy),
+        timestamp: timestamp.toISOString(),
+        reteTipo: rete.tipo,
+        reteEffectiveType: rete.effectiveType,
+        ipClient: rete.ip,
+        doppioControllo,
+      });
+
+      try {
+        const res = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Errore salvataggio');
+      } catch (saveErr) {
+        showError('Check-In valido ma salvataggio fallito: ' + saveErr.message);
+        btnConfermaDefinitivo.disabled = false;
+        btnConfermaDefinitivo.textContent = 'Conferma check-in definitivo';
+        return;
+      }
+
+      modalVerificato.classList.remove('hidden');
+      if (countdownInterval) clearInterval(countdownInterval);
+      document.getElementById('banner-richiesta').classList.add('hidden');
+      sezionePreviewGps.classList.add('hidden');
+
+      showFeedback(`
+        <div class="bg-green-50 border border-green-300 rounded-lg p-4" role="status">
+          <p class="text-green-800 font-semibold text-base mb-4">Check-In completato con successo!</p>
+          <dl class="space-y-2 text-sm text-green-900">
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Codice Fiscale:</dt>
+              <dd class="font-mono tracking-wider">${escapeHtml(cf)}</dd>
+            </div>
+            <div class="flex flex-col sm:gap-1 pt-1 border-t border-green-200">
+              <dt class="font-semibold">Indirizzo:</dt>
+              <dd>${escapeHtml(indirizzo)}</dd>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Distanza:</dt>
+              <dd>${Math.round(distanza)} m (entro ${RAGGIO_VERIFICA_METRI} m)</dd>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Precisione GPS:</dt>
+              <dd>±${Math.round(accuracy)} m</dd>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Latitudine:</dt>
+              <dd class="font-mono">${lat.toFixed(6)}</dd>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Longitudine:</dt>
+              <dd class="font-mono">${lng.toFixed(6)}</dd>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:gap-2">
+              <dt class="font-semibold min-w-[120px]">Timestamp:</dt>
+              <dd>${formatTimestamp(timestamp)}</dd>
+            </div>
+          </dl>
+          <p class="text-xs text-slate-500 mt-3">Check-in salvato sul server</p>
+        </div>
+      `);
+
+      btnConferma.remove();
+      btnRiprovaGps.remove();
+      btnConfermaDefinitivo.remove();
+      inputCF.disabled = true;
+      checkConferma.disabled = true;
+      Object.values(fields).forEach((f) => { f.disabled = true; });
+      btnVerificaIndirizzo.disabled = true;
+      btnPosizione.disabled = true;
+    }
+
+    // Valori demo (solo senza richiesta da URL)
+    if (!new URLSearchParams(window.location.search).get('r')) {
+      fields.via.value = 'Via Garibaldi';
+      fields.civico.value = '42';
+      fields.cap.value = '20121';
+      fields.comune.value = 'Milano';
+      fields.provincia.value = 'MI';
+    } else {
+      initRichiestaDaUrl();
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-In — Pannello Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+
+  <!-- Login -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center px-4">
+    <div class="bg-white rounded-xl shadow-lg border border-slate-200 p-8 w-full max-w-sm">
+      <h1 class="text-xl font-bold text-brand-800 mb-1">Check-In Admin</h1>
+      <p class="text-sm text-slate-500 mb-6">Pannello gestione check-in</p>
+      <label for="comune-select" class="block text-sm font-semibold text-slate-700 mb-2">Seleziona Comune</label>
+      <select id="comune-select" class="w-full px-4 py-3 border border-slate-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-brand-600">
+        <option value="">-- Seleziona --</option>
+        <option value="comune-a">Comune di Milano</option>
+        <option value="comune-b">Comune di Roma</option>
+      </select>
+      <label for="password" class="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+      <input type="password" id="password" placeholder="Password amministratore"
+        class="w-full px-4 py-3 border border-slate-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-brand-600">
+      <button id="btn-login" type="button"
+        class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-lg">
+        Accedi
+      </button>
+      <p id="login-error" class="hidden mt-3 text-sm text-red-600"></p>
+      <a href="/" class="block text-center text-xs text-slate-400 mt-6 hover:text-brand-600">← Torna all'app Check-In</a>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden">
+    <header class="bg-brand-800 text-white shadow-md">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div>
+          <h1 class="text-lg font-bold">Check-In Admin</h1>
+          <p class="text-brand-100 text-xs">Pannello check-in registrati</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="/" class="text-xs text-brand-200 hover:text-white hidden sm:inline">App utente</a>
+          <button id="btn-logout" type="button" class="text-xs bg-brand-700 hover:bg-brand-600 px-3 py-1.5 rounded-lg">Esci</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+
+      <!-- Invia richiesta check-in -->
+      <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-1">Invia richiesta check-in</h2>
+        <p class="text-xs text-slate-500 mb-4">L'utente avrà 15 minuti per completare il check-in alla residenza indicata.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Codice Fiscale</label>
+            <input type="text" id="req-cf" maxlength="16" placeholder="RSSMRA80A01H501U"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Via / Piazza</label>
+            <input type="text" id="req-via" placeholder="Via Garibaldi"
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">N. civico</label>
+            <input type="text" id="req-civico" placeholder="42" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">CAP</label>
+            <input type="text" id="req-cap" maxlength="5" placeholder="20121" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Comune</label>
+            <input type="text" id="req-comune" placeholder="Milano" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Prov.</label>
+            <input type="text" id="req-provincia" maxlength="2" placeholder="MI" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase">
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Contatto per notifica (Email o Telefono)</label>
+          <input type="text" id="req-contatto" placeholder="email@example.com o +393331234567"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+        </div>
+        <button id="btn-invia-richiesta" type="button"
+          class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm py-3 px-6 rounded-lg mt-4">
+          Genera notifica e link (15 min)
+        </button>
+        <p id="req-errore" class="hidden mt-3 text-sm text-red-600"></p>
+      </div>
+
+      <!-- Messaggio generato -->
+      <div id="box-messaggio" class="hidden bg-green-50 border border-green-300 rounded-xl p-5 mb-6">
+        <h3 class="text-sm font-bold text-green-800 mb-2">Notifica pronta da inviare all'utente</h3>
+        <p class="text-xs text-green-700 mb-3">Copia il messaggio e invialo via SMS, WhatsApp o email (simulazione notifica).</p>
+        <textarea id="testo-messaggio" rows="6" readonly
+          class="w-full px-3 py-2 border border-green-200 rounded-lg text-sm bg-white mb-3 font-mono"></textarea>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-copia-messaggio" type="button" class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-4 rounded-lg">Copia messaggio</button>
+          <button id="btn-copia-link" type="button" class="bg-white border border-green-400 text-green-800 text-sm font-medium py-2 px-4 rounded-lg">Copia solo link</button>
+          <a id="link-apri" href="#" target="_blank" class="text-sm text-brand-600 hover:underline py-2 px-2">Apri link utente →</a>
+        </div>
+      </div>
+
+      <!-- Richieste attive -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-700">Richieste check-in</h2>
+          <button id="btn-refresh-richieste" type="button" class="text-xs text-brand-600 font-medium">Aggiorna</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th class="text-left px-4 py-3">Inviata</th>
+                <th class="text-left px-4 py-3">CF</th>
+                <th class="text-left px-4 py-3 hidden sm:table-cell">Comune</th>
+                <th class="text-left px-4 py-3">Scade</th>
+                <th class="text-left px-4 py-3">Stato</th>
+                <th class="text-left px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="tabella-richieste" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <p id="empty-richieste" class="hidden text-center text-sm text-slate-400 py-8">Nessuna richiesta inviata.</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        <div class="bg-white rounded-lg border border-slate-200 p-4 text-center">
+          <p class="text-2xl font-bold text-brand-800" id="stat-totale">0</p>
+          <p class="text-xs text-slate-500 mt-1">Totale</p>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-4 text-center">
+          <p class="text-2xl font-bold text-green-600" id="stat-oggi">0</p>
+          <p class="text-xs text-slate-500 mt-1">Oggi</p>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-4 text-center">
+          <p class="text-2xl font-bold text-brand-600" id="stat-verificati">0</p>
+          <p class="text-xs text-slate-500 mt-1">Verificati</p>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-4 text-center">
+          <p class="text-2xl font-bold text-red-600" id="stat-falliti">0</p>
+          <p class="text-xs text-slate-500 mt-1">Falliti</p>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-4 text-center">
+          <p class="text-2xl font-bold text-purple-600" id="stat-successo-perc">0%</p>
+          <p class="text-xs text-slate-500 mt-1">Successo %</p>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-xl border border-slate-200 p-4 mb-4">
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Codice Fiscale</label>
+            <input type="text" id="filtro-cf" placeholder="Cerca CF..."
+              class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Esito</label>
+            <select id="filtro-esito" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+              <option value="">Tutti</option>
+              <option value="verificato">Verificato</option>
+              <option value="fallito">Fallito</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Da</label>
+            <input type="date" id="filtro-da" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">A</label>
+            <input type="date" id="filtro-a" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+          </div>
+          <div class="flex items-end gap-2">
+            <button id="btn-filtra" type="button"
+              class="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold py-2 rounded-lg">Filtra</button>
+            <button id="btn-reset" type="button"
+              class="px-3 py-2 border border-slate-300 text-sm rounded-lg hover:bg-slate-50">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-700">Check-in registrati</h2>
+          <button id="btn-refresh" type="button" class="text-xs text-brand-600 hover:text-brand-800 font-medium">Aggiorna</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th class="text-left px-4 py-3">Data/Ora</th>
+                <th class="text-left px-4 py-3">Codice Fiscale</th>
+                <th class="text-left px-4 py-3 hidden sm:table-cell">Comune</th>
+                <th class="text-left px-4 py-3">Distanza</th>
+                <th class="text-left px-4 py-3 hidden md:table-cell">Motivo</th>
+                <th class="text-left px-4 py-3">Esito</th>
+                <th class="text-left px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="tabella-body" class="divide-y divide-slate-100">
+            </tbody>
+          </table>
+        </div>
+        <p id="empty-state" class="hidden text-center text-sm text-slate-400 py-10">Nessun check-in registrato.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Detail modal -->
+  <div id="modal-dettaglio" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50" id="modal-dettaglio-backdrop"></div>
+    <div class="relative bg-white rounded-xl shadow-2xl p-6 max-w-md w-full max-h-[85vh] overflow-y-auto">
+      <h2 class="text-lg font-bold text-slate-800 mb-4">Dettaglio check-in</h2>
+      <dl id="dettaglio-content" class="space-y-2 text-sm"></dl>
+      <button id="modal-dettaglio-chiudi" type="button"
+        class="w-full mt-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-3 rounded-lg">
+        Chiudi
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const TOKEN_KEY = 'checkin_admin_token';
+    const COMUNE_KEY = 'checkin_admin_comune';
+    let checkinsCache = [];
+    let ultimoLink = '';
+
+    const loginScreen = document.getElementById('login-screen');
+    const dashboard = document.getElementById('dashboard');
+    const comuneSelect = document.getElementById('comune-select');
+    const passwordInput = document.getElementById('password');
+    const loginError = document.getElementById('login-error');
+    const tabellaBody = document.getElementById('tabella-body');
+    const emptyState = document.getElementById('empty-state');
+    const modalDettaglio = document.getElementById('modal-dettaglio');
+    const dettaglioContent = document.getElementById('dettaglio-content');
+
+    function getToken() {
+      return sessionStorage.getItem(TOKEN_KEY);
+    }
+
+    function setToken(token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+    }
+
+    function setComune(comune) {
+      sessionStorage.setItem(COMUNE_KEY, JSON.stringify(comune));
+    }
+
+    function getComune() {
+      const stored = sessionStorage.getItem(COMUNE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    }
+
+    function clearToken() {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(COMUNE_KEY);
+    }
+
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      const token = getToken();
+      if (token) headers.Authorization = 'Bearer ' + token;
+      if (options.body) headers['Content-Type'] = 'application/json';
+
+      const res = await fetch(path, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        clearToken();
+        showLogin();
+        throw new Error('Sessione scaduta');
+      }
+      if (!res.ok) throw new Error(data.error || 'Errore server');
+      return data;
+    }
+
+    function showLogin() {
+      loginScreen.classList.remove('hidden');
+      dashboard.classList.add('hidden');
+    }
+
+    function showDashboard() {
+      loginScreen.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      const comune = getComune();
+      if (comune) {
+        document.querySelector('header h1').textContent = 'Check-In Admin - ' + comune.nome;
+      }
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString('it-IT', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+    function renderStats(stats) {
+      document.getElementById('stat-totale').textContent = stats.totale;
+      document.getElementById('stat-oggi').textContent = stats.oggi;
+      document.getElementById('stat-verificati').textContent = stats.verificati;
+      document.getElementById('stat-falliti').textContent = stats.falliti ?? 0;
+      
+      const successoPercEl = document.getElementById('stat-successo-perc');
+      if (successoPercEl && stats.successoPerc !== undefined) {
+        successoPercEl.textContent = stats.successoPerc + '%';
+      }
+    }
+
+    function badgeEsito(esito) {
+      if (esito === 'verificato') {
+        return '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">verificato</span>';
+      }
+      return '<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">fallito</span>';
+    }
+
+    function renderTable(checkins) {
+      checkinsCache = checkins;
+      tabellaBody.innerHTML = '';
+
+      if (!checkins.length) {
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      checkins.forEach((c, i) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50';
+        tr.innerHTML = `
+          <td class="px-4 py-3 whitespace-nowrap text-xs">${formatDate(c.timestamp)}</td>
+          <td class="px-4 py-3 font-mono text-xs tracking-wide">${c.codiceFiscale}</td>
+          <td class="px-4 py-3 hidden sm:table-cell">${c.comune || '—'}</td>
+          <td class="px-4 py-3">${c.distanzaMetri != null ? c.distanzaMetri + ' m' : '—'}</td>
+          <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500 max-w-[180px] truncate" title="${c.motivo || ''}">${c.motivo || '—'}</td>
+          <td class="px-4 py-3">${badgeEsito(c.esito)}</td>
+          <td class="px-4 py-3">
+            <button type="button" data-index="${i}" class="dettaglio-btn text-xs text-brand-600 hover:text-brand-800 font-medium">Dettagli</button>
+          </td>
+        `;
+        tabellaBody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.dettaglio-btn').forEach((btn) => {
+        btn.addEventListener('click', () => mostraDettaglio(checkinsCache[btn.dataset.index]));
+      });
+    }
+
+    function mostraDettaglio(c) {
+      const rows = [
+        ['ID', c.id],
+        ['Esito', c.esito],
+        ['Motivo', c.motivo || '—'],
+        ['Codice Fiscale', c.codiceFiscale],
+        ['Indirizzo', c.indirizzo],
+        ['Comune', (c.comune || '—') + (c.provincia ? ' (' + c.provincia + ')' : '')],
+        ['CAP', c.cap || '—'],
+        ['Distanza', c.distanzaMetri != null ? c.distanzaMetri + ' m' : '—'],
+        ['Precisione GPS', c.precisioneGps != null ? '±' + c.precisioneGps + ' m' : '—'],
+        ['Rete', (c.reteTipo ? c.reteTipo : '—') + (c.reteEffectiveType ? ' (' + c.reteEffectiveType + ')' : '')],
+        ['IP client', c.ipClient || '—'],
+        ['Doppio controllo', c.doppioControllo || '—'],
+        ['Latitudine GPS', c.latitudine != null ? c.latitudine.toFixed(6) : '—'],
+        ['Longitudine GPS', c.longitudine != null ? c.longitudine.toFixed(6) : '—'],
+        ['Lat. residenza', c.latitudineResidenza != null ? c.latitudineResidenza.toFixed(6) : '—'],
+        ['Long. residenza', c.longitudineResidenza != null ? c.longitudineResidenza.toFixed(6) : '—'],
+        ['Timestamp', formatDate(c.timestamp)],
+        ['Registrato il', formatDate(c.createdAt)],
+      ];
+      dettaglioContent.innerHTML = rows.map(([k, v]) =>
+        `<div class="flex flex-col sm:flex-row sm:gap-2 border-b border-slate-100 pb-2">
+          <dt class="font-semibold text-slate-600 min-w-[130px]">${k}:</dt>
+          <dd class="text-slate-800 break-all">${v}</dd>
+        </div>`
+      ).join('');
+      modalDettaglio.classList.remove('hidden');
+    }
+
+    function badgeStatoRichiesta(stato) {
+      const map = {
+        in_attesa: 'bg-amber-100 text-amber-800',
+        completata: 'bg-green-100 text-green-800',
+        scaduta: 'bg-red-100 text-red-800',
+      };
+      return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[stato] || 'bg-slate-100 text-slate-700'}">${stato.replace('_', ' ')}</span>`;
+    }
+
+    function renderRichieste(list) {
+      const tbody = document.getElementById('tabella-richieste');
+      const empty = document.getElementById('empty-richieste');
+      tbody.innerHTML = '';
+      if (!list.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      list.forEach((r) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50';
+        const link = location.origin + '/?r=' + r.token;
+        tr.innerHTML = `
+          <td class="px-4 py-3 text-xs whitespace-nowrap">${formatDate(r.createdAt)}</td>
+          <td class="px-4 py-3 font-mono text-xs">${r.codiceFiscale}</td>
+          <td class="px-4 py-3 hidden sm:table-cell">${r.comune}</td>
+          <td class="px-4 py-3 text-xs whitespace-nowrap">${formatDate(r.scadeAt)}</td>
+          <td class="px-4 py-3">${badgeStatoRichiesta(r.stato)}</td>
+          <td class="px-4 py-3">
+            <button type="button" data-link="${link}" class="copia-link-btn text-xs text-brand-600 font-medium">Copia link</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.querySelectorAll('.copia-link-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          navigator.clipboard.writeText(btn.dataset.link);
+          btn.textContent = 'Copiato!';
+          setTimeout(() => { btn.textContent = 'Copia link'; }, 1500);
+        });
+      });
+    }
+
+    async function caricaRichieste() {
+      const data = await api('/api/richieste');
+      renderRichieste(data.richieste);
+    }
+
+    async function caricaDati() {
+      const cf = document.getElementById('filtro-cf').value.trim();
+      const esito = document.getElementById('filtro-esito').value;
+      const from = document.getElementById('filtro-da').value;
+      const to = document.getElementById('filtro-a').value;
+      const params = new URLSearchParams();
+      if (cf) params.set('cf', cf);
+      if (esito) params.set('esito', esito);
+      if (from) params.set('from', from);
+      if (to) params.set('to', to);
+
+      const [stats, data] = await Promise.all([
+        api('/api/stats'),
+        api('/api/checkins?' + params.toString()),
+      ]);
+      renderStats(stats);
+      renderTable(data.checkins);
+      await caricaRichieste();
+    }
+
+    document.getElementById('btn-invia-richiesta').addEventListener('click', async () => {
+      const errEl = document.getElementById('req-errore');
+      errEl.classList.add('hidden');
+      const btn = document.getElementById('btn-invia-richiesta');
+      btn.disabled = true;
+      btn.textContent = 'Generazione in corso...';
+      try {
+        const body = {
+          codiceFiscale: document.getElementById('req-cf').value.trim(),
+          via: document.getElementById('req-via').value.trim(),
+          civico: document.getElementById('req-civico').value.trim(),
+          cap: document.getElementById('req-cap').value.trim(),
+          comune: document.getElementById('req-comune').value.trim(),
+          provincia: document.getElementById('req-provincia').value.trim(),
+          contatto: document.getElementById('req-contatto').value.trim(),
+        };
+        const data = await api('/api/richieste', { method: 'POST', body: JSON.stringify(body) });
+        ultimoLink = data.link;
+        document.getElementById('testo-messaggio').value = data.messaggio;
+        document.getElementById('link-apri').href = data.link;
+        document.getElementById('box-messaggio').classList.remove('hidden');
+        await caricaRichieste();
+      } catch (e) {
+        errEl.textContent = e.message;
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Genera notifica e link (15 min)';
+      }
+    });
+
+    document.getElementById('btn-copia-messaggio').addEventListener('click', () => {
+      const ta = document.getElementById('testo-messaggio');
+      navigator.clipboard.writeText(ta.value);
+    });
+
+    document.getElementById('btn-copia-link').addEventListener('click', () => {
+      if (ultimoLink) navigator.clipboard.writeText(ultimoLink);
+    });
+
+    document.getElementById('btn-refresh-richieste').addEventListener('click', caricaRichieste);
+
+    document.getElementById('btn-login').addEventListener('click', async () => {
+      loginError.classList.add('hidden');
+      const comuneId = comuneSelect.value;
+      const password = passwordInput.value;
+
+      if (!comuneId) {
+        loginError.textContent = 'Seleziona un comune';
+        loginError.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const data = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ comuneId, password }),
+        }).then((r) => r.json());
+
+        if (!data.token) throw new Error(data.error || 'Login fallito');
+        setToken(data.token);
+        setComune(data.comune);
+        showDashboard();
+        await caricaDati();
+      } catch (e) {
+        loginError.textContent = e.message || 'Password non valida';
+        loginError.classList.remove('hidden');
+      }
+    });
+
+    passwordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btn-login').click();
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      clearToken();
+      showLogin();
+      passwordInput.value = '';
+    });
+
+    document.getElementById('btn-filtra').addEventListener('click', caricaDati);
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      document.getElementById('filtro-cf').value = '';
+      document.getElementById('filtro-esito').value = '';
+      document.getElementById('filtro-da').value = '';
+      document.getElementById('filtro-a').value = '';
+      caricaDati();
+    });
+    document.getElementById('btn-refresh').addEventListener('click', caricaDati);
+    document.getElementById('modal-dettaglio-chiudi').addEventListener('click', () => modalDettaglio.classList.add('hidden'));
+    document.getElementById('modal-dettaglio-backdrop').addEventListener('click', () => modalDettaglio.classList.add('hidden'));
+
+    if (getToken()) {
+      showDashboard();
+      caricaDati().catch(showLogin);
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "checkin-app",
+  "version": "1.0.0",
+  "description": "Check-In WebApp per certificazione presenza fisica",
+  "main": "serve.js",
+  "scripts": {
+    "start": "node serve.js",
+    "dev": "node serve.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
