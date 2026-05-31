@@ -213,6 +213,7 @@
                 <th class="text-left px-4 py-3">Codice Fiscale</th>
                 <th class="text-left px-4 py-3 hidden sm:table-cell">Comune</th>
                 <th class="text-left px-4 py-3">Distanza</th>
+                <th class="text-left px-4 py-3 hidden sm:table-cell">Precisione GPS</th>
                 <th class="text-left px-4 py-3 hidden md:table-cell">Motivo</th>
                 <th class="text-left px-4 py-3">Esito</th>
                 <th class="text-left px-4 py-3"></th>
@@ -353,6 +354,7 @@
           <td class="px-4 py-3 font-mono text-xs tracking-wide">${c.codiceFiscale}</td>
           <td class="px-4 py-3 hidden sm:table-cell">${c.comune || '—'}</td>
           <td class="px-4 py-3">${c.distanzaMetri != null ? c.distanzaMetri + ' m' : '—'}</td>
+          <td class="px-4 py-3 hidden sm:table-cell text-xs">${c.precisioneGps != null ? '±' + c.precisioneGps + ' m' : '—'}</td>
           <td class="px-4 py-3 hidden md:table-cell text-xs text-slate-500 max-w-[180px] truncate" title="${c.motivo || ''}">${c.motivo || '—'}</td>
           <td class="px-4 py-3">${badgeEsito(c.esito)}</td>
           <td class="px-4 py-3">
