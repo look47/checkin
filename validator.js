@@ -5,8 +5,8 @@ const validator = {
   },
   
   isCodiceFiscale: (cf) => {
-    // Formato: 6 lettere + 2 numeri (anno) + 1 lettera (mese) + 2 numeri (giorno) + 4 caratteri (comune) + 1 carattere controllo
-    return /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{3}[A-Z0-9]$/i.test(cf);
+    // Formato: 16 caratteri alfanumerici (permissivo per accettare tutti i CF validi)
+    return /^[A-Z0-9]{16}$/i.test(cf);
   },
   
   isCAP: (cap) => {
