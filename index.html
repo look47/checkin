@@ -865,8 +865,8 @@
       newInput.value = r.codiceFiscale;
       newInput.setAttribute('value', r.codiceFiscale);
       inputCF.parentNode.replaceChild(newInput, inputCF);
-      // Update reference
-      const newInputCF = document.getElementById('codice-fiscale');
+      // Update global reference to new input
+      inputCF = document.getElementById('codice-fiscale');
       // Set other field values
       fields.via.value = r.via;
       fields.civico.value = r.civico;
