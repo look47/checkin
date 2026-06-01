@@ -860,12 +860,15 @@
     async function applicaRichiesta(r) {
       richiestaAttiva = r;
       modoRichiesta = true;
+      // Set values BEFORE locking fields
+      inputCF.value = r.codiceFiscale;
       fields.via.value = r.via;
       fields.civico.value = r.civico;
       fields.cap.value = r.cap;
       fields.comune.value = r.comune;
       fields.provincia.value = r.provincia;
-      inputCF.value = r.codiceFiscale;
+      // Force update the input field
+      inputCF.dispatchEvent(new Event('input', { bubbles: true }));
       bloccaCampiRichiesta();
 
       if (r.stato === 'completata') {
