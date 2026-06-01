@@ -421,7 +421,11 @@
         spidScreen.classList.add('hidden');
         checkinMain.classList.remove('hidden');
         
-        inputCF.value = 'RSSMRA80A01H501U';
+        // Modifica: imposta il CF finto SOLO se NON siamo in modalità richiesta
+        if (!modoRichiesta) {
+          inputCF.value = 'RSSMRA80A01H501U';
+        }
+        
         inputCF.disabled = true;
         inputCF.classList.add('bg-slate-100', 'text-slate-500');
         
