@@ -860,21 +860,14 @@
     async function applicaRichiesta(r) {
       richiestaAttiva = r;
       modoRichiesta = true;
-      // Set other field values first
+      // Set all field values
+      inputCF.value = r.codiceFiscale;
       fields.via.value = r.via;
       fields.civico.value = r.civico;
       fields.cap.value = r.cap;
       fields.comune.value = r.comune;
       fields.provincia.value = r.provincia;
-      // Set CF value LAST and force DOM update
-      inputCF.readOnly = false;
-      inputCF.classList.remove('bg-slate-100');
-      inputCF.value = r.codiceFiscale;
-      inputCF.setAttribute('value', r.codiceFiscale);
-      inputCF.defaultValue = r.codiceFiscale;
-      // Force reflow
-      inputCF.offsetHeight;
-      // Now lock all fields
+      // Lock all fields
       bloccaCampiRichiesta();
 
       if (r.stato === 'completata') {
