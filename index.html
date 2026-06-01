@@ -860,8 +860,10 @@
     async function applicaRichiesta(r) {
       richiestaAttiva = r;
       modoRichiesta = true;
+      // Get fresh DOM reference
+      const cfInput = document.getElementById('codice-fiscale');
       // Set all field values
-      inputCF.value = r.codiceFiscale;
+      cfInput.value = r.codiceFiscale;
       fields.via.value = r.via;
       fields.civico.value = r.civico;
       fields.cap.value = r.cap;
