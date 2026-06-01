@@ -152,7 +152,7 @@
       <!-- STEP 2: Codice Fiscale -->
       <section class="mb-6">
         <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">2. Codice Fiscale</h2>
-        <input type="text" id="codice-fiscale" maxlength="16" placeholder="Inserisci Codice Fiscale"
+        <input type="text" id="codice-fiscale" maxlength="16" placeholder=""
           autocomplete="off" spellcheck="false"
           class="w-full px-4 py-3 border border-slate-300 rounded-lg text-base uppercase tracking-wider
                  focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400">
@@ -860,15 +860,20 @@
     async function applicaRichiesta(r) {
       richiestaAttiva = r;
       modoRichiesta = true;
-      // Set values BEFORE locking fields
+      // Set values using setAttribute for CF
+      inputCF.setAttribute('value', r.codiceFiscale);
       inputCF.value = r.codiceFiscale;
       fields.via.value = r.via;
       fields.civico.value = r.civico;
       fields.cap.value = r.cap;
       fields.comune.value = r.comune;
       fields.provincia.value = r.provincia;
-      // Force update the input field
-      inputCF.dispatchEvent(new Event('input', { bubbles: true }));
+      // Force DOM update
+      setTimeout(() => {
+        inputCF.value = r.codiceFiscale;
+        inputCF.setAttribute('value', r.codiceFiscale);
+      }, 10);
+      // Lock all fields
       bloccaCampiRichiesta();
 
       if (r.stato === 'completata') {
