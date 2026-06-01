@@ -860,20 +860,20 @@
     async function applicaRichiesta(r) {
       richiestaAttiva = r;
       modoRichiesta = true;
-      // Set values using setAttribute for CF
-      inputCF.setAttribute('value', r.codiceFiscale);
-      inputCF.value = r.codiceFiscale;
+      // Replace CF input element entirely to force update
+      const newInput = inputCF.cloneNode(true);
+      newInput.value = r.codiceFiscale;
+      newInput.setAttribute('value', r.codiceFiscale);
+      inputCF.parentNode.replaceChild(newInput, inputCF);
+      // Update reference
+      const newInputCF = document.getElementById('codice-fiscale');
+      // Set other field values
       fields.via.value = r.via;
       fields.civico.value = r.civico;
       fields.cap.value = r.cap;
       fields.comune.value = r.comune;
       fields.provincia.value = r.provincia;
-      // Force DOM update
-      setTimeout(() => {
-        inputCF.value = r.codiceFiscale;
-        inputCF.setAttribute('value', r.codiceFiscale);
-      }, 10);
-      // Lock all fields
+      // Lock all fields (will lock the new input)
       bloccaCampiRichiesta();
 
       if (r.stato === 'completata') {
