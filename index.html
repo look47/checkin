@@ -902,7 +902,9 @@
         const res = await fetch('/api/richieste/' + token);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Richiesta non valida');
+        console.log('Richiesta caricata:', data.richiesta);
         await applicaRichiesta(data.richiesta);
+        console.log('CF dopo applicaRichiesta:', inputCF.value);
         aggiornaBtnConferma();
       } catch (e) {
         mostraBannerBloccato(e.message || 'Richiesta check-in non valida.');
